@@ -6,6 +6,8 @@
 run, showing a centered card UI with live progress and compact speed-history
 graphs.
 
+![Showcase GIF](assets/showcase.gif)
+
 [![terminal speed test](https://img.shields.io/badge/terminal-speed%20test-39d0d8?style=flat-square)](https://github.com/Foxemsx/speed)
 [![Linux](https://img.shields.io/badge/Linux-supported-2ea44f?style=flat-square&logo=linux&logoColor=white)](https://github.com/Foxemsx/speed)
 [![Windows](https://img.shields.io/badge/Windows-supported-0078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/Foxemsx/speed)
