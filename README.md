@@ -1,10 +1,20 @@
 # speed
 
-> A polished terminal internet speed test, written in Go.
+> A polished terminal tool for measuring — and watching — your internet
+> connection, written in Go.
 
-`speed` measures **download**, **upload**, and **latency/ping** in a single
-run, showing a centered card UI with live progress and compact speed-history
-graphs.
+`speed` opens with a small **startup menu** so you can choose between two
+modes:
+
+- **Speed Test** — a one-shot run that measures **download**, **upload**, and
+  **latency/ping**, ending in a compact summary with peak rates.
+- **Bandwidth Monitor** — a **live** view of your real network traffic (it
+  reads the OS interface counters, generating no test traffic of its own),
+  showing download + upload continuously with all-time peaks, an uptime
+  counter, and pause/reset.
+
+Both modes render a centered card UI with live progress and smooth
+gradient graphs.
 
 ![Showcase GIF](assets/showcase.gif)
 
@@ -12,17 +22,26 @@ graphs.
 
 ## Screenshots
 
-| Home (testing in progress)            | Finished (summary)                | Help menu (`?`)                    |
-| ------------------------------------- | --------------------------------- | ---------------------------------- |
-| ![Home](assets/home.png)              | ![Finished](assets/finished.png)  | ![Help menu](assets/helpmenu.png)  |
+| Main menu                          | Speed Test (in progress)          | Finished (summary)                |
+| ---------------------------------- | --------------------------------- | --------------------------------- |
+| ![Main menu](assets/mainmenu.png)  | ![Home](assets/home.png)          | ![Finished](assets/finished.png)  |
 
-- **Home** — the centered card with the live `SPEED` header, download/upload
-  gradient graphs, and a spinner while servers are found.
+| Bandwidth Monitor                  | Help menu (`?`)                    |
+| ---------------------------------- | ---------------------------------- |
+| ![Bandwidth](assets/bandwidth.png) | ![Help menu](assets/helpmenu.png)  |
+
+- **Main menu** — pick a mode: Speed Test, Bandwidth Monitor, or Exit.
+  Navigate with the keyboard or click a box.
+- **Speed Test** — the centered card with the live `SPEED` header,
+  download/upload gradient graphs, and a spinner while servers are found.
 - **Finished** — the final summary with peak download/upload rates and ping.
-- **Help menu** — press `?` during a run to see the live controls.
+- **Bandwidth Monitor** — live download + upload of your real connection,
+  with all-time peaks and an uptime line. `● LIVE` while running, `Ⅱ PAUSED`
+  when paused.
+- **Help menu** — press `?` in either mode to see the live controls.
 
 
-[![terminal speed test](https://img.shields.io/badge/terminal-speed%20test-39d0d8?style=flat-square)](https://github.com/Foxemsx/speed)
+[![terminal internet tool](https://img.shields.io/badge/terminal-internet%20tool-39d0d8?style=flat-square)](https://github.com/Foxemsx/speed)
 [![Linux](https://img.shields.io/badge/Linux-supported-2ea44f?style=flat-square&logo=linux&logoColor=white)](https://github.com/Foxemsx/speed)
 [![Windows](https://img.shields.io/badge/Windows-supported-0078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/Foxemsx/speed)
 Runs on Linux and Windows terminals. Any other OS supported by Go should work
@@ -32,12 +51,15 @@ too.
 
 ## Features
 
-- **All-in-one test** — download, upload, and ping in a single run.
+- **Startup menu** — choose Mode (Speed Test / Bandwidth Monitor / Exit) from
+  a centered row of cards; move with `←/→` or `j/k`, `enter` to select, or
+  click a box directly.
+- **Speed Test** — download, upload, and ping in a single run.
+- **Bandwidth Monitor** — watches your PC's real network traffic continuously
+  (no synthetic load) until you leave, tracking all-time peaks and uptime.
 - **Parallel connections** (~5) to saturate your link, like fast.com.
 - **Centered, rounded-border card** that reflows on resize and looks good at
   any terminal size.
-- **Custom full-screen background** via `--bg <hex>` (falls back to the
-  terminal's default background when omitted).
 - **Distinct accent colors** for download (teal) vs upload (amber), with a
   small reskinnable theme.
 - **Live gradient graphs** for download and upload — vertical bars shaded
@@ -45,13 +67,15 @@ too.
   every ~100 ms.
 - **Smooth interpolation** (lerp) so the numbers and bars glide instead of
   snapping.
-- **Phase progression**: finding servers (spinner) → download → upload →
-  latency → a one-line summary with peak values.
-- **Live controls** while the test runs:
+- **Phase progression** (Speed Test): finding servers (spinner) → download →
+  upload → latency → a one-line summary with peak values.
+- **Live controls** while the test/monitor runs:
   - `c` — cycle units (Mbps / KB/s / MB/s / GB/s)
-  - `r` — restart the test
+  - `r` — restart the test / monitor
+  - `p` — pause / resume the monitor (Bandwidth Monitor only)
   - `?` — toggle the help overlay
-  - `q` / `esc` / `ctrl+c` — quit (cancels in-flight transfers).
+  - `esc` / `m` — back to the main menu
+  - `q` / `ctrl+c` — quit (cancels in-flight transfers).
 - **Graceful errors**: no internet / network failures show a clear message,
   never a stack trace.
 
@@ -193,20 +217,39 @@ is especially easy to miss on the fish shell). Make sure `~/go/bin` is on your
 ## Usage
 
 ```sh
-speed                 # run the test with the terminal's default background
-speed --bg "#0d1117"  # run with a custom full-screen background color
-speed --bg 0d1117     # the leading '#' is optional
+speed   # opens the startup menu; pick Speed Test or Bandwidth Monitor
 ```
+
+Launch `speed` with no arguments to open the **main menu**, then choose a
+mode. Each mode has its own live controls (see below). From anywhere,
+`esc` / `m` returns to the menu and `ctrl+c` quits.
 
 ### Flags
 
 | Flag      | Description                                                                       | Default   |
 | --------- | --------------------------------------------------------------------------------- | --------- |
-| `--bg`    | Full-screen background color as hex (`#rrggbb`). Omit to use the terminal native background. | _(none)_   |
-| `--theme` | Color theme name. Currently only `default`. Reserved for future palettes.          | `default` |
+| `--theme` | Color theme name. Currently only `default`. Reserved for future palettes.         | `default` |
 
-After a run completes, press **q**, **esc**, or **ctrl+c** to quit — you can
-quit at any time to abort an in-progress test.
+### Speed Test controls
+
+| Key       | Action                                            |
+| --------- | ------------------------------------------------- |
+| `c`       | cycle units (Mbps / KB/s / MB/s / GB/s)           |
+| `r`       | restart the test                                 |
+| `?`       | toggle the help overlay                          |
+| `esc`/`m` | back to the menu                                 |
+| `q`       | quit (cancels the in-flight test)                |
+
+### Bandwidth Monitor controls
+
+| Key       | Action                                            |
+| --------- | ------------------------------------------------- |
+| `c`       | cycle units (Mbps / KB/s / MB/s / GB/s)           |
+| `p`       | pause / resume the monitor                        |
+| `r`       | restart the monitor                              |
+| `?`       | toggle the help overlay                          |
+| `esc`/`m` | back to the menu                                 |
+| `q`       | quit                                             |
 
 ---
 
