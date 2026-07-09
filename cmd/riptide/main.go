@@ -7,6 +7,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/Foxemsx/riptide/internal/theme"
+	"github.com/Foxemsx/riptide/internal/ui"
 )
 
 func main() {
@@ -21,7 +24,7 @@ func main() {
 	}
 	flag.Parse()
 
-	theme := DefaultTheme
+	t := theme.DefaultTheme
 	_ = themeFlag // reserved for future palettes
 
 	// Force dark adaptive colors and paint the host terminal canvas so classic
@@ -36,8 +39,8 @@ func main() {
 		fmt.Fprint(os.Stdout, "\x1b]111\a\x1b]110\a")
 	}()
 
-	m := newAppModel(theme, *compactFlag)
-	p := tea.NewProgram(&m, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	m := ui.NewApp(t, *compactFlag)
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "riptide: %v\n", err)

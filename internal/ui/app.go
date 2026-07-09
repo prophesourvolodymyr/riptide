@@ -1,16 +1,18 @@
-package main
+package ui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+
+	apptheme "github.com/Foxemsx/riptide/internal/theme"
 )
 
-// appModel is the top-level Bubble Tea model and the screen router. It owns the
+// App is the top-level Bubble Tea model and the screen router. It owns the
 // three sub-screens (menu, speed test, monitor) and routes messages between
 // them. The sub-models no longer implement tea.Model themselves — they expose
 // Start/Update/View and this router drives them, keeping a single point of
 // control for quit + back-to-menu navigation.
-type appModel struct {
-	theme  Theme
+type App struct {
+	theme   apptheme.Theme
 	compact bool
 
 	width  int
@@ -22,16 +24,17 @@ type appModel struct {
 	monitor *monitorModel
 }
 
-func newAppModel(theme Theme, compact bool) appModel {
-	return appModel{
-		theme:   theme,
+// NewApp builds the root model for the riptide TUI.
+func NewApp(t apptheme.Theme, compact bool) *App {
+	return &App{
+		theme:   t,
 		compact: compact,
 		screen:  screenMenu,
-		menu:    newMenuModel(theme, compact),
+		menu:    newMenuModel(t, compact),
 	}
 }
 
-func (a appModel) Init() tea.Cmd {
+func (a *App) Init() tea.Cmd {
 	// Animate the menu's spinner; sub-screens start their own commands when
 	// entered.
 	return a.menu.Init()
@@ -39,7 +42,7 @@ func (a appModel) Init() tea.Cmd {
 
 // enter builds (lazily) and starts the chosen sub-screen, replacing whatever
 // was active and cancelling the previous one.
-func (a *appModel) enter(s screenID) tea.Cmd {
+func (a *App) enter(s screenID) tea.Cmd {
 	// Tear down any previous sub-screen.
 	if a.test != nil && a.test.cancel != nil {
 		a.test.cancel()
@@ -71,7 +74,7 @@ func (a *appModel) enter(s screenID) tea.Cmd {
 	}
 }
 
-func (a *appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
@@ -155,7 +158,7 @@ func (a *appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // backToMenu cancels the active sub-screen and returns to the menu.
-func (a *appModel) backToMenu() {
+func (a *App) backToMenu() {
 	if a.test != nil && a.test.cancel != nil {
 		a.test.cancel()
 	}
@@ -166,7 +169,7 @@ func (a *appModel) backToMenu() {
 }
 
 // quitAll cancels every in-flight background test/monitor.
-func (a *appModel) quitAll() {
+func (a *App) quitAll() {
 	if a.test != nil && a.test.cancel != nil {
 		a.test.cancel()
 	}
@@ -175,7 +178,7 @@ func (a *appModel) quitAll() {
 	}
 }
 
-func (a appModel) View() string {
+func (a *App) View() string {
 	switch a.screen {
 	case screenTest:
 		if a.test == nil {

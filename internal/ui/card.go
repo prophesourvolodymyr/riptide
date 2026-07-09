@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"context"
@@ -9,20 +9,23 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/Foxemsx/riptide/internal/engine"
+	apptheme "github.com/Foxemsx/riptide/internal/theme"
+
 )
 
 // tickMsg is emitted every ~100ms to refresh the UI and advance animations.
 type tickMsg struct{}
 
 // phaseMsg carries a phase transition from the background test.
-type phaseMsg struct{ phase Phase }
+type phaseMsg struct{ phase engine.Phase }
 
 // sampleMsg carries one instantaneous speed sample from the background test.
-type sampleMsg struct{ sample Sample }
+type sampleMsg struct{ sample engine.Sample }
 
 // resultMsg carries the final measurement from the background test.
 type resultMsg struct {
-	result Result
+	result engine.Result
 }
 
 // errMsg carries a fatal error from the background test.
@@ -82,8 +85,8 @@ func (u unitMode) label() string {
 // the Bandwidth Monitor card. Both sub-models embed *cardState so they get the
 // same rendering primitives, graphs, theme, and animation state for free.
 type cardState struct {
-	theme    Theme
-	progress *Progress
+	theme apptheme.Theme
+	progress *engine.Progress
 	ctx      context.Context
 	cancel   context.CancelFunc
 	events   chan tea.Msg // bridge from the background runner to Update
@@ -92,7 +95,7 @@ type cardState struct {
 	height   int
 
 	// Live phase state.
-	phase      Phase
+	phase      engine.Phase
 	phaseStart time.Time     // when the current timed phase began
 	phaseDur   time.Duration // duration of the current timed phase
 	serverName string
@@ -118,15 +121,15 @@ type cardState struct {
 
 // newCardState builds the shared state for one run: spinner, channels, context,
 // and the two history graphs.
-func newCardState(theme Theme, compact bool) *cardState {
+func newCardState(theme apptheme.Theme, compact bool) *cardState {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(theme.Highlight)
 
-	p := &Progress{
-		Phases:  make(chan Phase, 16),
-		Samples: make(chan Sample, 256),
-		Result:  make(chan Result, 1),
+	p := &engine.Progress{
+		Phases:  make(chan engine.Phase, 16),
+		Samples: make(chan engine.Sample, 256),
+		Result:  make(chan engine.Result, 1),
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -138,7 +141,7 @@ func newCardState(theme Theme, compact bool) *cardState {
 		cancel:   cancel,
 		events:   make(chan tea.Msg, 64),
 		spinner:  s,
-		phase:    PhaseInit,
+		phase:    engine.PhaseInit,
 		dlGraph:  newGraph(40, graphHeight, theme.GraphDownBottom, theme.GraphDownTop),
 		ulGraph:  newGraph(40, graphHeight, theme.GraphUpBottom, theme.GraphUpTop),
 	}
@@ -147,20 +150,20 @@ func newCardState(theme Theme, compact bool) *cardState {
 // bridgeLaunch starts the background transfer engine plus the channel bridge
 // that fans its events into the tea event stream. Shared by the test and the
 // monitor (they differ only in which Run* function they pass).
-func bridgeLaunch(ctx context.Context, p *Progress, events chan tea.Msg, run func()) {
+func bridgeLaunch(ctx context.Context, p *engine.Progress, events chan tea.Msg, run func()) {
 	go run()
 	go runBridge(ctx, p, events)
 }
 
 // runBridge fans the background runner's channels into the tea event stream.
-// On context cancel it still waits briefly for a final Result so the summary
+// On context cancel it still waits briefly for a final engine.Result so the summary
 // is not lost when the user aborts mid-phase.
-func runBridge(ctx context.Context, p *Progress, events chan tea.Msg) {
+func runBridge(ctx context.Context, p *engine.Progress, events chan tea.Msg) {
 	defer close(events)
 	for {
 		select {
 		case <-ctx.Done():
-			// Drain a late Result if the engine is about to emit one.
+			// Drain a late engine.Result if the engine is about to emit one.
 			select {
 			case r, ok := <-p.Result:
 				if ok {
@@ -306,21 +309,21 @@ func (c *cardState) statusLine() string {
 	var label string
 	var color lipgloss.AdaptiveColor
 	switch c.phase {
-	case PhaseFinding, PhaseInit:
+	case engine.PhaseFinding, engine.PhaseInit:
 		return center(c.spinner.View()+"  "+lipgloss.NewStyle().Foreground(c.theme.Muted).Render("finding servers…"), c.cardWidthFor())
-	case PhaseConnected:
+	case engine.PhaseConnected:
 		who := "server"
 		if c.serverName != "" {
 			who = c.serverName
 		}
 		return center(lipgloss.NewStyle().Foreground(c.theme.Highlight).Render("✓ connected to "+who), c.cardWidthFor())
-	case PhaseDownload:
+	case engine.PhaseDownload:
 		label, color = "measuring download", c.theme.Download
-	case PhaseUpload:
+	case engine.PhaseUpload:
 		label, color = "measuring upload", c.theme.Upload
-	case PhaseLatency:
+	case engine.PhaseLatency:
 		label, color = "measuring latency", c.theme.Latency
-	case PhaseDone:
+	case engine.PhaseDone:
 		if c.err != nil {
 			return center(lipgloss.NewStyle().Foreground(c.theme.Upload).Render("✕ finished with errors"), c.cardWidthFor())
 		}
@@ -333,7 +336,7 @@ func (c *cardState) statusLine() string {
 	elapsed := time.Since(c.phaseStart)
 	total := c.phaseDur
 	if total <= 0 {
-		total = defaultDuration
+		total = engine.DefaultDuration
 	}
 	frac := elapsed.Seconds() / total.Seconds()
 	if frac < 0 {
@@ -370,7 +373,7 @@ func (c *cardState) progressBar(frac float64, color lipgloss.AdaptiveColor, widt
 // metricBlock renders one download or upload metric: a label + big number +
 // unit on the first line, a framed high-res graph beneath it, and peak info
 // under the axis. Left-aligned so the chart sits under its headline.
-func (c *cardState) metricBlock(label string, color lipgloss.AdaptiveColor, value float64, g *graph, peak float64, ph Phase) string {
+func (c *cardState) metricBlock(label string, color lipgloss.AdaptiveColor, value float64, g *graph, peak float64, ph engine.Phase) string {
 	numStr, unit := c.formatValue(value)
 	labelStyle := lipgloss.NewStyle().Foreground(color).Bold(true)
 	numStyle := lipgloss.NewStyle().Foreground(color).Bold(true).Width(7).Align(lipgloss.Right)
@@ -379,7 +382,7 @@ func (c *cardState) metricBlock(label string, color lipgloss.AdaptiveColor, valu
 	border := lipgloss.NewStyle().Foreground(c.theme.Border)
 
 	// Dim the metric if its phase hasn't started yet.
-	if c.phase < ph && c.phase != PhaseDone {
+	if c.phase < ph && c.phase != engine.PhaseDone {
 		labelStyle = labelStyle.Faint(true)
 		numStyle = numStyle.Faint(true)
 	}
@@ -546,7 +549,7 @@ type helpBinding struct {
 // renderHelpPanel draws a polished centered help modal shared by speed test
 // and bandwidth screens. Every style carries the panel fill so nested SGR
 // resets cannot punch holes in the background.
-func renderHelpPanel(theme Theme, title string, bindings []helpBinding, width, height int) string {
+func renderHelpPanel(theme apptheme.Theme, title string, bindings []helpBinding, width, height int) string {
 	const (
 		innerW = 42 // content width inside padding
 		keyCol = 12
@@ -642,5 +645,5 @@ func renderHelpPanel(theme Theme, title string, bindings []helpBinding, width, h
 		Width(innerW + 4).
 		Render(content)
 
-	return paintScreen(theme, width, height, panel)
+	return apptheme.PaintScreen(theme, width, height, panel)
 }

@@ -1,4 +1,4 @@
-package main
+package engine
 
 // counters is the cumulative byte totals for one interface, keyed by
 // interface identifier (Windows index, Linux interface name).

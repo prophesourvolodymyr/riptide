@@ -1,4 +1,4 @@
-package main
+package engine
 
 import (
 	"context"
@@ -20,10 +20,10 @@ const (
 	// fast.com's web bundle; it is required by the API and is not secret.
 	configURL = "https://api.fast.com/netflix/speedtest/v2?https=true&token=YXNkZmFzZGxmbnNkYWZoYXNkZmhrYWxm&urlCount=%d"
 
-	// Number of parallel connections used to saturate the link.
-	defaultConnections = 5
-	// Duration of each transfer phase (download / upload).
-	defaultDuration = 10 * time.Second
+	// DefaultConnections is the number of parallel streams used to saturate the link.
+	DefaultConnections = 5
+	// DefaultDuration is how long each transfer phase (download / upload) runs.
+	DefaultDuration = 10 * time.Second
 	// Size of a single upload POST body. We reuse the same random buffer
 	// repeatedly, mirroring fast.com's POST-to-target approach.
 	uploadChunkSize = 256 * 1024
@@ -170,7 +170,7 @@ func runPhase(ctx context.Context, urls []string, duration time.Duration, c *cou
 
 	var wg sync.WaitGroup
 	// Distribute connections round-robin across the discovered URLs.
-	for i := 0; i < defaultConnections; i++ {
+	for i := 0; i < DefaultConnections; i++ {
 		url := urls[i%len(urls)]
 		wg.Add(1)
 		go func(url string) {
@@ -373,10 +373,10 @@ func measureLatency(ctx context.Context, url string) (float64, error) {
 // Result on p.Result. Always emits a Result (best-effort partials on cancel).
 func Run(ctx context.Context, p *Progress, connections int, duration time.Duration) {
 	if connections <= 0 {
-		connections = defaultConnections
+		connections = DefaultConnections
 	}
 	if duration <= 0 {
-		duration = defaultDuration
+		duration = DefaultDuration
 	}
 
 	var (
@@ -481,7 +481,7 @@ func runTimedPhase(ctx context.Context, urls []string, duration time.Duration, c
 	go func() {
 		var peak float64
 		for s := range local {
-			if mbps := bytesPerSecToMbps(s.Rate); mbps > peak {
+			if mbps := BytesPerSecToMbps(s.Rate); mbps > peak {
 				peak = mbps
 			}
 		}
@@ -544,10 +544,11 @@ func bytesToMbps(bytes uint64, d time.Duration) float64 {
 	if d <= 0 {
 		return 0
 	}
-	return bytesPerSecToMbps(float64(bytes) / d.Seconds())
+	return BytesPerSecToMbps(float64(bytes) / d.Seconds())
 }
 
-func bytesPerSecToMbps(bps float64) float64 {
+// BytesPerSecToMbps converts a raw byte/sec rate into megabits per second.
+func BytesPerSecToMbps(bps float64) float64 {
 	const bitsPerByte = 8
 	const mega = 1_000_000
 	return (bps * bitsPerByte) / mega

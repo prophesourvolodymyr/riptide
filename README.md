@@ -80,7 +80,7 @@ riptide
 **Anywhere with Go 1.23+**:
 
 ```sh
-go install github.com/Foxemsx/riptide@latest
+go install github.com/Foxemsx/riptide/cmd/riptide@latest
 riptide
 ```
 
@@ -89,7 +89,7 @@ riptide
 ```sh
 git clone https://github.com/Foxemsx/riptide
 cd riptide
-go build -o riptide .    # Windows: go build -o riptide.exe .
+go build -o riptide ./cmd/riptide    # Windows: go build -o riptide.exe ./cmd/riptide
 ./riptide
 ```
 

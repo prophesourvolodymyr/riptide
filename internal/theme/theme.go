@@ -1,4 +1,4 @@
-package main
+package theme
 
 import "github.com/charmbracelet/lipgloss"
 
@@ -73,9 +73,9 @@ var DefaultTheme = Theme{
 	MenuSelectExit: lipgloss.Color("#1a2a1e"), // green glass on charcoal
 }
 
-// paintScreen fills the terminal with AppBg and centers content on it so the
+// PaintScreen fills the terminal with AppBg and centers content on it so the
 // UI never shows the host console's pure-black default.
-func paintScreen(theme Theme, width, height int, content string) string {
+func PaintScreen(t Theme, width, height int, content string) string {
 	if width <= 0 {
 		width = 80
 	}
@@ -86,6 +86,6 @@ func paintScreen(theme Theme, width, height int, content string) string {
 		width, height,
 		lipgloss.Center, lipgloss.Center,
 		content,
-		lipgloss.WithWhitespaceBackground(theme.AppBg),
+		lipgloss.WithWhitespaceBackground(t.AppBg),
 	)
 }

@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"fmt"
@@ -8,6 +8,9 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/Foxemsx/riptide/internal/engine"
+	apptheme "github.com/Foxemsx/riptide/internal/theme"
+
 )
 
 // monitorModel is the live Bandwidth Monitor card. It embeds *cardState and
@@ -38,7 +41,7 @@ func newMonitorModel(cs *cardState) *monitorModel {
 // Start kicks off the continuous engine + bridge.
 func (m *monitorModel) Start() tea.Cmd {
 	bridgeLaunch(m.ctx, m.progress, m.events, func() {
-		RunMonitor(m.ctx, m.progress, tickInterval)
+		engine.RunMonitor(m.ctx, m.progress, tickInterval)
 	})
 	return tea.Batch(
 		m.spinner.Tick,
@@ -64,7 +67,7 @@ func (m *monitorModel) reset() tea.Cmd {
 	m.paused = false
 
 	bridgeLaunch(m.ctx, m.progress, m.events, func() {
-		RunMonitor(m.ctx, m.progress, tickInterval)
+		engine.RunMonitor(m.ctx, m.progress, tickInterval)
 	})
 	return tea.Batch(
 		m.spinner.Tick,
@@ -115,27 +118,27 @@ func (m *monitorModel) Update(msg tea.Msg) (tea.Cmd, bool) {
 		// The monitor watches real PC traffic and has no remote target, so
 		// there is nothing to measure latency against - only show the
 		// adapter label.
-		if msg.phase == PhaseConnected {
+		if msg.phase == engine.PhaseConnected {
 			if m.progress.ServerName != "" {
 				m.serverName = m.progress.ServerName
 			}
 			// Both directions are measured continuously, so treat the card as
 			// fully active (phase Upload = highest) to keep neither DL nor UL
 			// block dimmed in metricBlock.
-			m.phase = PhaseUpload
+			m.phase = engine.PhaseUpload
 		}
 		return listenCmd(m.events), false
 
 	case sampleMsg:
 		if !m.paused {
-			mbps := bytesPerSecToMbps(msg.sample.Rate)
+			mbps := engine.BytesPerSecToMbps(msg.sample.Rate)
 			switch msg.sample.Phase {
-			case PhaseDownload:
+			case engine.PhaseDownload:
 				m.dlTarget = mbps
 				if mbps > m.dlPeak {
 					m.dlPeak = mbps
 				}
-			case PhaseUpload:
+			case engine.PhaseUpload:
 				m.ulTarget = mbps
 				if mbps > m.ulPeak {
 					m.ulPeak = mbps
@@ -197,13 +200,13 @@ func (m *monitorModel) View() string {
 
 	// Download block.
 	body.WriteString(m.metricBlock(
-		"↓ download", m.theme.Download, m.dlDisplay, m.dlGraph, m.dlPeak, PhaseDownload,
+		"↓ download", m.theme.Download, m.dlDisplay, m.dlGraph, m.dlPeak, engine.PhaseDownload,
 	))
 	body.WriteString("\n\n")
 
 	// Upload block.
 	body.WriteString(m.metricBlock(
-		"↑ upload", m.theme.Upload, m.ulDisplay, m.ulGraph, m.ulPeak, PhaseUpload,
+		"↑ upload", m.theme.Upload, m.ulDisplay, m.ulGraph, m.ulPeak, engine.PhaseUpload,
 	))
 	body.WriteString("\n\n")
 
@@ -255,7 +258,7 @@ func (m *monitorModel) View() string {
 		return m.renderHelp()
 	}
 
-	return paintScreen(m.theme, m.width, m.height, stack)
+	return apptheme.PaintScreen(m.theme, m.width, m.height, stack)
 }
 
 // renderHelp renders the monitor's control help modal.

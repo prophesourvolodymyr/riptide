@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"strings"
@@ -7,6 +7,8 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	apptheme "github.com/Foxemsx/riptide/internal/theme"
+
 )
 
 // Layout thresholds for a "crazy good" responsive menu.
@@ -43,7 +45,7 @@ type menuItem struct {
 // Test / Bandwidth Monitor / Exit) that can be navigated with the keyboard or
 // the mouse, and emits a menuSelectMsg when the user picks one.
 type menuModel struct {
-	theme   Theme
+	theme apptheme.Theme
 	compact bool
 	width   int
 	height  int
@@ -54,7 +56,7 @@ type menuModel struct {
 	items   []menuItem
 }
 
-func newMenuModel(theme Theme, compact bool) *menuModel {
+func newMenuModel(theme apptheme.Theme, compact bool) *menuModel {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(theme.Highlight)
@@ -339,7 +341,7 @@ func (m *menuModel) View() string {
 	if ch <= 0 {
 		ch = 30
 	}
-	return paintScreen(m.theme, m.width, ch, stack)
+	return apptheme.PaintScreen(m.theme, m.width, ch, stack)
 }
 
 // renderBox draws one modern menu button. Selected buttons get a solid

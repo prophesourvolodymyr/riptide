@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"math"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lucasb-eyer/go-colorful"
+
 )
 
 // Eighth-block ramp: 0 empty … 8 solid. Gives 8× vertical resolution vs plain █.

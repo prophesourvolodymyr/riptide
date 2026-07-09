@@ -258,7 +258,7 @@ func initialModel() model {
 	return model{
 		phase: "intro",
 		steps: []step{
-			{name: "Installing riptide binary (go install)", args: []string{"go", "install", "github.com/Foxemsx/riptide@main"}},
+			{name: "Installing riptide binary (go install)", args: []string{"go", "install", "github.com/Foxemsx/riptide/cmd/riptide@main"}},
 			{name: "Verifying riptide is on your PATH", args: []string{"sh", "-c", "command -v riptide"}},
 		},
 	}

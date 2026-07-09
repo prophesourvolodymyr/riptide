@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"fmt"
@@ -8,6 +8,9 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/Foxemsx/riptide/internal/engine"
+	apptheme "github.com/Foxemsx/riptide/internal/theme"
+
 )
 
 // model is the bubbletea sub-model for the one-shot Speed Test card. It embeds
@@ -21,7 +24,7 @@ type model struct {
 	// Test-specific state.
 	testStart time.Time // when the whole test began (hard watchdog)
 	quitting bool
-	result   Result
+	result   engine.Result
 	gotResult bool
 }
 
@@ -36,7 +39,7 @@ func newTestModel(cs *cardState) *model {
 // of commands that keep the UI alive (spinner tick, refresh tick, event listen).
 func (m *model) Start() tea.Cmd {
 	bridgeLaunch(m.ctx, m.progress, m.events, func() {
-		Run(m.ctx, m.progress, defaultConnections, defaultDuration)
+		engine.Run(m.ctx, m.progress, engine.DefaultConnections, engine.DefaultDuration)
 	})
 	return tea.Batch(
 		m.spinner.Tick,
@@ -62,7 +65,7 @@ func (m *model) reset() tea.Cmd {
 	m.quitting = false
 
 	bridgeLaunch(m.ctx, m.progress, m.events, func() {
-		Run(m.ctx, m.progress, defaultConnections, defaultDuration)
+		engine.Run(m.ctx, m.progress, engine.DefaultConnections, engine.DefaultDuration)
 	})
 	return tea.Batch(
 		m.spinner.Tick,
@@ -112,22 +115,22 @@ func (m *model) Update(msg tea.Msg) (tea.Cmd, bool) {
 
 	case phaseMsg:
 		m.phase = msg.phase
-		if msg.phase == PhaseConnected && m.progress.ServerName != "" {
+		if msg.phase == engine.PhaseConnected && m.progress.ServerName != "" {
 			m.serverName = m.progress.ServerName
 		}
 		// Start the per-phase timer for download/upload (the timed phases).
-		if msg.phase == PhaseDownload || msg.phase == PhaseUpload {
+		if msg.phase == engine.PhaseDownload || msg.phase == engine.PhaseUpload {
 			m.phaseStart = time.Now()
-			m.phaseDur = defaultDuration
+			m.phaseDur = engine.DefaultDuration
 		}
 		return listenCmd(m.events), false
 
 	case sampleMsg:
-		mbps := bytesPerSecToMbps(msg.sample.Rate)
+		mbps := engine.BytesPerSecToMbps(msg.sample.Rate)
 		switch msg.sample.Phase {
-		case PhaseDownload:
+		case engine.PhaseDownload:
 			m.dlTarget = mbps
-		case PhaseUpload:
+		case engine.PhaseUpload:
 			m.ulTarget = mbps
 		}
 		return listenCmd(m.events), false
@@ -140,7 +143,7 @@ func (m *model) Update(msg tea.Msg) (tea.Cmd, bool) {
 	case resultMsg:
 		m.result = msg.result
 		m.gotResult = true
-		m.phase = PhaseDone
+		m.phase = engine.PhaseDone
 		if m.progress != nil && m.progress.Err != nil {
 			m.err = m.progress.Err
 		}
@@ -171,7 +174,7 @@ func (m *model) Update(msg tea.Msg) (tea.Cmd, bool) {
 
 	case errMsg:
 		m.err = msg.err
-		m.phase = PhaseDone
+		m.phase = engine.PhaseDone
 		if m.cancel != nil {
 			m.cancel()
 		}
@@ -193,11 +196,11 @@ func (m *model) advance() {
 		m.ulDisplay = m.ulTarget
 	}
 	switch m.phase {
-	case PhaseDownload:
+	case engine.PhaseDownload:
 		if m.dlDisplay > 0 {
 			m.dlGraph.push(m.dlDisplay)
 		}
-	case PhaseUpload:
+	case engine.PhaseUpload:
 		if m.ulDisplay > 0 {
 			m.ulGraph.push(m.ulDisplay)
 		}
@@ -206,23 +209,23 @@ func (m *model) advance() {
 	// Watchdog: drive phase transitions on the local timer so we never hang.
 	// The engine normally sends phase messages too; this is the fallback.
 	// Never cancel the engine here — cancelling used to close the event bridge
-	// before Result arrived, which left the summary at 0.0 forever.
+	// before engine.Result arrived, which left the summary at 0.0 forever.
 	if !m.gotResult {
 		now := time.Now()
 		switch m.phase {
-		case PhaseDownload:
+		case engine.PhaseDownload:
 			if !m.phaseStart.IsZero() && now.Sub(m.phaseStart) >= m.phaseDur {
-				m.phase = PhaseUpload
+				m.phase = engine.PhaseUpload
 				m.phaseStart = now
 			}
-		case PhaseUpload:
+		case engine.PhaseUpload:
 			if !m.phaseStart.IsZero() && now.Sub(m.phaseStart) >= m.phaseDur {
-				m.phase = PhaseLatency
+				m.phase = engine.PhaseLatency
 				m.phaseStart = now
 			}
-		case PhaseLatency:
+		case engine.PhaseLatency:
 			// Latency should finish in a couple of seconds. If it stalls, keep
-			// showing the phase but do not invent a zeroed Result.
+			// showing the phase but do not invent a zeroed engine.Result.
 		}
 	}
 }
@@ -246,19 +249,19 @@ func (m *model) View() string {
 		body.WriteString("\n\n")
 	}
 
-	// Phase status line (spinner for finding servers, check for connected).
+	// engine.Phase status line (spinner for finding servers, check for connected).
 	body.WriteString(m.statusLine())
 	body.WriteString("\n\n")
 
 	// Download block.
 	body.WriteString(m.metricBlock(
-		"↓ download", m.theme.Download, m.dlDisplay, m.dlGraph, m.result.DownloadPeak, PhaseDownload,
+		"↓ download", m.theme.Download, m.dlDisplay, m.dlGraph, m.result.DownloadPeak, engine.PhaseDownload,
 	))
 	body.WriteString("\n\n")
 
 	// Upload block.
 	body.WriteString(m.metricBlock(
-		"↑ upload", m.theme.Upload, m.ulDisplay, m.ulGraph, m.result.UploadPeak, PhaseUpload,
+		"↑ upload", m.theme.Upload, m.ulDisplay, m.ulGraph, m.result.UploadPeak, engine.PhaseUpload,
 	))
 	body.WriteString("\n\n")
 
@@ -304,14 +307,14 @@ func (m *model) View() string {
 		return m.renderHelp()
 	}
 
-	return paintScreen(m.theme, m.width, m.height, stack)
+	return apptheme.PaintScreen(m.theme, m.width, m.height, stack)
 }
 
 // summaryLine shows the final download / upload / ping on one line, with ping
 // colored by the latency accent.
 func (m *model) summaryLine() string {
-	if m.phase != PhaseDone {
-		if m.phase == PhaseLatency {
+	if m.phase != engine.PhaseDone {
+		if m.phase == engine.PhaseLatency {
 			msg := "measuring latency…"
 			if m.pingDisp > 0 {
 				msg = fmt.Sprintf("ping  %.0f ms", m.pingDisp)
