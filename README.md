@@ -110,7 +110,7 @@ The bash installer does **not** run on Windows. Pick one of:
 - **With Go 1.23+** (no release needed):
 
   ```sh
-  go install github.com/Foxemsx/riptide/cmd/riptide@latest
+  go install github.com/Foxemsx/riptide/cmd/riptide@main
   riptide
   ```
 
